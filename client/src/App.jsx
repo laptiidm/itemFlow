@@ -9,6 +9,8 @@ function App() {
   const [quantity, setQuantity] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [createError, setCreateError] = useState('')
+  const [deletingIds, setDeletingIds] = useState([])
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -74,6 +76,25 @@ function App() {
     }
   }
 
+  async function handleDelete(id) {
+    if (deletingIds.includes(id)) return
+
+    setDeletingIds((currentIds) => [...currentIds, id])
+    setDeleteError('')
+    try {
+      const response = await fetch(`/api/items/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error('Failed to delete item. Please try again.')
+      }
+
+      setItems((currentItems) => currentItems.filter((item) => item.id !== id))
+    } catch (error) {
+      setDeleteError(error.message || 'Failed to delete item.')
+    } finally {
+      setDeletingIds((currentIds) => currentIds.filter((itemId) => itemId !== id))
+    }
+  }
+
   return (
     <main className="inventory">
       <h1>ItemFlow</h1>
@@ -110,11 +131,20 @@ function App() {
       <h2>Items</h2>
       {loading && <p role="status">Loading items...</p>}
       {error && <p role="alert">{error}</p>}
+      {deleteError && <p role="alert">{deleteError}</p>}
       {!loading && !error && (
         <ul>
           {items.map((item) => (
             <li key={item.id}>
               {item.name} — Quantity: {item.quantity}
+              <button
+                type="button"
+                onClick={() => handleDelete(item.id)}
+                disabled={deletingIds.includes(item.id)}
+                aria-label={`Delete ${item.name}`}
+              >
+                {deletingIds.includes(item.id) ? 'Deleting...' : 'Delete'}
+              </button>
             </li>
           ))}
         </ul>
