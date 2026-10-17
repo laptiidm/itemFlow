@@ -10,3 +10,21 @@
 .inventory li {
   margin-bottom: 8px;
 }
+
+.inventory form {
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  margin-bottom: 24px;
+}
+
+.inventory label {
+  display: grid;
+  gap: 4px;
+}
+
+.inventory input,
+.inventory button {
+  padding: 8px;
+  font: inherit;
+}

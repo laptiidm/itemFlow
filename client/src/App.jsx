@@ -5,6 +5,10 @@ function App() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [name, setName] = useState('')
+  const [quantity, setQuantity] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -37,9 +41,72 @@ function App() {
     return () => controller.abort()
   }, [])
 
+  async function handleSubmit(event) {
+    event.preventDefault()
+    if (submitting) return
+
+    const numericQuantity = Number(quantity)
+    if (!name.trim() || quantity === '' || !Number.isInteger(numericQuantity) || numericQuantity < 0) {
+      setCreateError('Enter a name and a non-negative whole quantity.')
+      return
+    }
+
+    setSubmitting(true)
+    setCreateError('')
+    try {
+      const response = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim(), quantity: numericQuantity }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to create item. Please check the input and try again.')
+      }
+
+      const item = await response.json()
+      setItems((currentItems) => [...currentItems, item])
+      setName('')
+      setQuantity('')
+    } catch (error) {
+      setCreateError(error.message || 'Failed to create item.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <main className="inventory">
       <h1>ItemFlow</h1>
+      {!loading && !error && (
+        <form onSubmit={handleSubmit}>
+          <h2>Add item</h2>
+          <label>
+            Item name
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              disabled={submitting}
+            />
+          </label>
+          <label>
+            Quantity
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              required
+              disabled={submitting}
+            />
+          </label>
+          <button type="submit" disabled={submitting}>
+            {submitting ? 'Adding...' : 'Add item'}
+          </button>
+          {createError && <p role="alert">{createError}</p>}
+        </form>
+      )}
       <h2>Items</h2>
       {loading && <p role="status">Loading items...</p>}
       {error && <p role="alert">{error}</p>}
