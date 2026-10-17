@@ -1,18 +1,13 @@
 import express from 'express';
+import db from './db.js';
 
 const app = express();
 const port = 3000;
 
 app.use(express.json());
 
-const items = [
-  { id: 1, name: 'Keyboard', quantity: 10 },
-  { id: 2, name: 'Mouse', quantity: 5 },
-];
-let nextId = 3;
-
 app.get('/api/items', (req, res) => {
-  res.json(items);
+  res.json(db.prepare('SELECT id, name, quantity FROM items ORDER BY id').all());
 });
 
 app.post('/api/items', (req, res) => {
@@ -25,8 +20,10 @@ app.post('/api/items', (req, res) => {
     return res.status(400).json({ error: 'Quantity must be a non-negative integer.' });
   }
 
-  const item = { id: nextId++, name: name.trim(), quantity };
-  items.push(item);
+  const result = db.prepare('INSERT INTO items (name, quantity) VALUES (?, ?)')
+    .run(name.trim(), quantity);
+  const item = db.prepare('SELECT id, name, quantity FROM items WHERE id = ?')
+    .get(Number(result.lastInsertRowid));
   res.status(201).json(item);
 });
 
@@ -36,7 +33,7 @@ app.patch('/api/items/:id', (req, res) => {
     return res.status(400).json({ error: 'ID must be a positive integer.' });
   }
 
-  const item = items.find((item) => item.id === id);
+  const item = db.prepare('SELECT id, name, quantity FROM items WHERE id = ?').get(id);
   if (!item) {
     return res.status(404).json({ error: 'Item not found.' });
   }
@@ -54,9 +51,12 @@ app.patch('/api/items/:id', (req, res) => {
     return res.status(400).json({ error: 'Quantity must be a non-negative integer.' });
   }
 
-  if (hasName) item.name = body.name.trim();
-  if (hasQuantity) item.quantity = body.quantity;
-  res.json(item);
+  db.prepare('UPDATE items SET name = ?, quantity = ? WHERE id = ?').run(
+    hasName ? body.name.trim() : item.name,
+    hasQuantity ? body.quantity : item.quantity,
+    id
+  );
+  res.json(db.prepare('SELECT id, name, quantity FROM items WHERE id = ?').get(id));
 });
 
 app.delete('/api/items/:id', (req, res) => {
@@ -66,12 +66,11 @@ app.delete('/api/items/:id', (req, res) => {
     return res.status(400).json({ error: 'ID must be a positive integer.' });
   }
 
-  const index = items.findIndex((item) => item.id === id);
-  if (index === -1) {
+  const result = db.prepare('DELETE FROM items WHERE id = ?').run(id);
+  if (result.changes === 0) {
     return res.status(404).json({ error: 'Item not found.' });
   }
 
-  items.splice(index, 1);
   res.status(204).end();
 });
 
