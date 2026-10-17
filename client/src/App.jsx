@@ -11,6 +11,11 @@ function App() {
   const [createError, setCreateError] = useState('')
   const [deletingIds, setDeletingIds] = useState([])
   const [deleteError, setDeleteError] = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editQuantity, setEditQuantity] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [editError, setEditError] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
@@ -95,6 +100,47 @@ function App() {
     }
   }
 
+  function handleEdit(item) {
+    setEditingId(item.id)
+    setEditName(item.name)
+    setEditQuantity(String(item.quantity))
+    setEditError('')
+  }
+
+  async function handleSave(event) {
+    event.preventDefault()
+    if (saving) return
+
+    const numericQuantity = Number(editQuantity)
+    if (!editName.trim() || editQuantity === '' || !Number.isInteger(numericQuantity) || numericQuantity < 0) {
+      setEditError('Enter a name and a non-negative whole quantity.')
+      return
+    }
+
+    setSaving(true)
+    setEditError('')
+    try {
+      const response = await fetch(`/api/items/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editName.trim(), quantity: numericQuantity }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to save item. Please try again.')
+      }
+
+      const updatedItem = await response.json()
+      setItems((currentItems) => currentItems.map((item) =>
+        item.id === updatedItem.id ? updatedItem : item
+      ))
+      setEditingId(null)
+    } catch (error) {
+      setEditError(error.message || 'Failed to save item.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <main className="inventory">
       <h1>ItemFlow</h1>
@@ -136,15 +182,40 @@ function App() {
         <ul>
           {items.map((item) => (
             <li key={item.id}>
-              {item.name} — Quantity: {item.quantity}
-              <button
-                type="button"
-                onClick={() => handleDelete(item.id)}
-                disabled={deletingIds.includes(item.id)}
-                aria-label={`Delete ${item.name}`}
-              >
-                {deletingIds.includes(item.id) ? 'Deleting...' : 'Delete'}
-              </button>
+              {editingId === item.id ? (
+                <form onSubmit={handleSave}>
+                  <label>
+                    Item name
+                    <input value={editName} onChange={(event) => setEditName(event.target.value)} required disabled={saving} />
+                  </label>
+                  <label>
+                    Quantity
+                    <input type="number" min="0" step="1" value={editQuantity} onChange={(event) => setEditQuantity(event.target.value)} required disabled={saving} />
+                  </label>
+                  <button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
+                  <button type="button" onClick={() => setEditingId(null)} disabled={saving}>Cancel</button>
+                  {editError && <p role="alert">{editError}</p>}
+                </form>
+              ) : (
+                <>
+                  {item.name} — Quantity: {item.quantity}
+                  <button
+                    type="button"
+                    onClick={() => handleEdit(item)}
+                    disabled={editingId !== null || deletingIds.includes(item.id)}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deletingIds.includes(item.id)}
+                    aria-label={`Delete ${item.name}`}
+                  >
+                    {deletingIds.includes(item.id) ? 'Deleting...' : 'Delete'}
+                  </button>
+                </>
+              )}
             </li>
           ))}
         </ul>
