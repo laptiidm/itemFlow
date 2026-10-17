@@ -11,6 +11,10 @@
   margin-bottom: 8px;
 }
 
+.inventory li button {
+  margin-left: 12px;
+}
+
 .inventory form {
   display: grid;
   gap: 12px;
